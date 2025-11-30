@@ -8,6 +8,7 @@ import 'navbar.dart';
 
 // --- Data Model for a single expiring item ---
 class ExpiringItem {
+  final String id;
   final String name;
   final double count;
   final String unit;
@@ -16,6 +17,7 @@ class ExpiringItem {
   final DateTime expiryDate;
 
   const ExpiringItem({
+    required this.id,
     required this.name,
     required this.count,
     required this.unit,
@@ -220,6 +222,7 @@ class _ExpiringItemsScreenState extends State<ExpiringItemsScreen> {
         final unit = data['unit'] as String? ?? TranslationHelper.t('pcs', 'عدد');
 
         items.add(ExpiringItem(
+          id: doc.id,
           name: data['name'] as String? ?? TranslationHelper.t('Unknown Item', 'نامعلوم آئٹم'),
           count: quantity,
           unit: unit,
@@ -263,6 +266,136 @@ class _ExpiringItemsScreenState extends State<ExpiringItemsScreen> {
 }
 
   // Helper method to get icon based on category
+  // Delete item function
+  Future<void> _deleteItem(ExpiringItem item) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('inventory')
+          .doc(item.id)
+          .delete();
+      
+      // Remove from local list
+      setState(() {
+        _expiringItems.removeWhere((i) => i.id == item.id);
+      });
+      
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${item.name} ${TranslationHelper.t('deleted successfully', 'کامیابی سے حذف ہو گیا')}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${TranslationHelper.t('Error deleting', 'حذف کرتے وقت خرابی')} ${item.name}: $e'),
+            backgroundColor: _primaryRed,
+          ),
+        );
+      }
+    }
+  }
+
+  // Show delete confirmation dialog
+  void _showDeleteDialog(ExpiringItem item) {
+    final isDarkMode = ThemeProvider().darkModeEnabled;
+    final dialogBg = isDarkMode ? const Color(0xFF2A2A2A) : Colors.white;
+    final textColor = isDarkMode ? const Color(0xFFE1E1E1) : Colors.black;
+    final secondaryTextColor = isDarkMode ? const Color(0xFFB0B0B0) : Colors.black87;
+    final cancelButtonBg = isDarkMode ? const Color(0xFF404040) : Colors.grey[200];
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: dialogBg,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0),
+          ),
+          title: Text(
+            TranslationHelper.t('Delete Item', 'آئٹم حذف کریں'),
+            style: TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          content: Text(
+            TranslationHelper.t('Are you sure you want to delete ${item.name}?', 'کیا آپ یقینی ہیں کہ آپ ${item.name} کو حذف کرنا چاہتے ہیں؟'),
+            style: TextStyle(
+              color: secondaryTextColor,
+              fontSize: 16,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          actions: [
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    child: TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: TextButton.styleFrom(
+                        backgroundColor: cancelButtonBg,
+                        foregroundColor: textColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: Text(
+                        TranslationHelper.t('Cancel', 'منسوخ'),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Container(
+                    margin: const EdgeInsets.only(left: 8),
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _deleteItem(item);
+                      },
+                      style: TextButton.styleFrom(
+                        backgroundColor: _primaryRed,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: Text(
+                        TranslationHelper.t('Delete', 'حذف'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          actionsPadding: const EdgeInsets.all(16),
+        );
+      },
+    );
+  }
+
   IconData _getIconForCategory(String category) {
     switch (category.toLowerCase()) {
       case 'fruit':
@@ -355,28 +488,58 @@ Widget _buildItemCard(ExpiringItem item) {
           
           const SizedBox(width: 12),
           
-          // Warning icon only
-          if (showWarning)
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: _primaryRed,
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  '!',
-                  style: TextStyle(
-                    color: _primaryWhite,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    height: 1.0,
+          // Warning icon and menu button
+          Column(
+            children: [
+              if (showWarning)
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: _primaryRed,
+                    shape: BoxShape.circle,
                   ),
-                  textAlign: TextAlign.center,
+                  child: Center(
+                    child: Text(
+                      '!',
+                      style: TextStyle(
+                        color: _primaryWhite,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        height: 1.0,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
                 ),
+              if (showWarning) const SizedBox(height: 4),
+              // Three-dot menu button
+              PopupMenuButton<String>(
+                icon: Icon(Icons.more_vert, color: isDarkMode ? const Color(0xFFB0B0B0) : Colors.grey, size: 20),
+                color: isDarkMode ? const Color(0xFF2A2A2A) : Colors.white,
+                onSelected: (value) {
+                  if (value == 'delete') {
+                    _showDeleteDialog(item);
+                  }
+                },
+                itemBuilder: (BuildContext context) => [
+                  PopupMenuItem<String>(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.delete, color: Color.fromARGB(255, 144, 11, 9)),
+                        const SizedBox(width: 8),
+                        Text(
+                          TranslationHelper.t('Delete', 'حذف'),
+                          style: TextStyle(color: isDarkMode ? const Color(0xFFE1E1E1) : Colors.black),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ),
+            ],
+          ),
         ],
       ),
     ),

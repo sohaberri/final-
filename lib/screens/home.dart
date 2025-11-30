@@ -301,16 +301,24 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                       ],
                     ),
                     const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.headerText.withOpacity(0.3),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.person_outline,
-                        color: AppColors.headerText,
-                        size: 30,
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const ProfileCheck()),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.headerText.withOpacity(0.3),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.person_outline,
+                          color: AppColors.headerText,
+                          size: 30,
+                        ),
                       ),
                     ),
                   ],
