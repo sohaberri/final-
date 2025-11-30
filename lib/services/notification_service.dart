@@ -5,9 +5,28 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
-import 'package:timezone/timezone.dart' as tz;
+import 'package:workmanager/workmanager.dart';
 import '../main.dart' show navigatorKey;
 import '../screens/expiring.dart';
+
+// Background task callback dispatcher
+@pragma('vm:entry-point')
+void callbackDispatcher() {
+  Workmanager().executeTask((task, inputData) async {
+    debugPrint('🔄 Background task started: $task');
+    
+    try {
+      // Check expiring items in background
+      await NotificationService().checkExpiringItems(forceCheck: false);
+      debugPrint('✅ Background task completed successfully');
+      return Future.value(true);
+    } catch (e) {
+      debugPrint('❌ Background task failed: $e');
+      return Future.value(false);
+    }
+  });
+}
+
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -20,6 +39,7 @@ class NotificationService {
 
   static const String _notificationEnabledKey = 'notifications_enabled';
   static const String _notificationDaysKey = 'notification_days';
+  static const String _backgroundTaskName = 'checkExpiringItemsTask';
 
   // Initialize notification service
   Future<void> initialize(BuildContext context) async {
@@ -51,6 +71,12 @@ class NotificationService {
       onDidReceiveNotificationResponse: (NotificationResponse response) {
         _handleNotificationTap(context, response);
       },
+    );
+
+    // Initialize WorkManager for background tasks
+    await Workmanager().initialize(
+      callbackDispatcher,
+      isInDebugMode: false,
     );
   }
 
@@ -265,6 +291,26 @@ class NotificationService {
   Future<void> scheduleDailyCheck() async {
     // Check immediately when app opens
     await checkExpiringItems();
+    
+    // Register periodic background task (runs every 15 minutes on Android)
+    // This is the minimum interval allowed by WorkManager
+    await Workmanager().registerPeriodicTask(
+      _backgroundTaskName,
+      _backgroundTaskName,
+      frequency: const Duration(hours: 1), // Check every hour
+      initialDelay: const Duration(minutes: 15), // First check in 15 minutes
+      constraints: Constraints(
+        networkType: NetworkType.connected, // Requires internet for Firestore
+      ),
+    );
+    
+    debugPrint('✅ Background task scheduled: checks every hour');
+  }
+  
+  // Cancel background tasks
+  Future<void> cancelBackgroundTasks() async {
+    await Workmanager().cancelByUniqueName(_backgroundTaskName);
+    debugPrint('🔕 Background tasks cancelled');
   }
   
   // Method to be called when app comes to foreground

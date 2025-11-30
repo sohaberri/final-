@@ -3,9 +3,26 @@
 ## Dependencies Installed
 
 The following packages have been added to `pubspec.yaml`:
-- `firebase_messaging: ^14.7.9` - For Firebase Cloud Messaging
-- `flutter_local_notifications: ^16.3.0` - For local notifications
+- `firebase_messaging: ^14.7.9` - For Firebase Cloud Messaging (permission handling)
+- `flutter_local_notifications: ^17.0.0` - For local notifications
 - `timezone: ^0.9.2` - For timezone support
+- `workmanager: ^0.5.2` - For background task scheduling
+
+## How Background Notifications Work
+
+The app now sends notifications **even when closed** using these components:
+
+1. **WorkManager**: Schedules periodic background tasks that run every hour
+2. **Local Notifications**: Displays notifications directly from the device
+3. **Firestore Integration**: Checks user inventory in the background
+4. **Smart Throttling**: Only sends one notification per day to avoid spam
+
+### Background Task Flow
+
+```
+App Closed → WorkManager Triggers (Every Hour) → Check Firestore → 
+Calculate Expiring Items → Send Local Notification
+```
 
 ## Installation Steps
 
@@ -32,31 +49,19 @@ android {
 }
 ```
 
-#### Add permissions to `android/app/src/main/AndroidManifest.xml`
+#### Permissions in `android/app/src/main/AndroidManifest.xml`
 
-Add these permissions inside the `<manifest>` tag:
+The following permissions are already configured:
 
 ```xml
 <uses-permission android:name="android.permission.INTERNET"/>
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-<uses-permission android:name="android.permission.VIBRATE"/>
 <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 <uses-permission android:name="android.permission.WAKE_LOCK"/>
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 ```
 
-Add this inside the `<application>` tag:
-
-```xml
-<receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
-<receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
-    <intent-filter>
-        <action android:name="android.intent.action.BOOT_COMPLETED"/>
-        <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
-        <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-        <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
-    </intent-filter>
-</receiver>
-```
+WorkManager receivers are configured to restart tasks after device reboot.
 
 ### 3. iOS Configuration
 
