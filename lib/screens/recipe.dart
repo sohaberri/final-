@@ -329,23 +329,15 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         message = 'Updated quantities for $updatedCount existing items!';
       }
 
-      // ScaffoldMessenger.of(context).showSnackBar(
-      //   SnackBar(
-      //     content: Text(message),
-      //     backgroundColor: Colors.green,
-      //     duration: const Duration(seconds: 3),
-      //     action: SnackBarAction(
-      //       label: 'View List',
-      //       textColor: Colors.white,
-      //       onPressed: () {
-      //         ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      //         Navigator.of(context).push(
-      //           MaterialPageRoute(
-      //             builder: (context) => GroceryListScreen(),),);
-      //       },
-      //     ),
-      //   ),
-      // );
+      if (message.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     } catch (e) {
       print('Error adding to grocery list: $e');
       ScaffoldMessenger.of(context).showSnackBar(
